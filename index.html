@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gmail Compose Helper</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+
+        .form-container {
+            padding: 40px;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #374151;
+            font-size: 0.95rem;
+        }
+
+        input[type="text"],
+        textarea {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.2s ease;
+            font-family: inherit;
+        }
+
+        input[type="text"]:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 120px;
+        }
+
+        .recipients-input {
+            min-height: 100px;
+        }
+
+        .help-text {
+            font-size: 0.85rem;
+            color: #6b7280;
+            margin-top: 6px;
+            line-height: 1.4;
+        }
+
+        .prepare-button {
+            width: 100%;
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+            border: none;
+            padding: 16px 24px;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .prepare-button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(79, 70, 229, 0.3);
+        }
+
+        .prepare-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .status-container {
+            margin-top: 30px;
+            padding: 20px;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .status-success {
+            background: #ecfdf5;
+            border: 1px solid #a7f3d0;
+            color: #065f46;
+        }
+
+        .status-error {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #991b1b;
+        }
+
+        .status-info {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            color: #1e40af;
+        }
+
+        .loading {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #ffffff;
+            border-top: 2px solid transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .emails-container {
+            margin-top: 20px;
+        }
+
+        .email-item {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+            transition: all 0.2s ease;
+        }
+
+        .email-item:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .email-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .recipient-info {
+            font-weight: 600;
+            color: #374151;
+        }
+
+        .open-gmail-btn {
+            background: #ea4335;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .open-gmail-btn:hover {
+            background: #d33b2c;
+            transform: translateY(-1px);
+        }
+
+        .preview-message {
+            background: white;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            padding: 15px;
+            font-family: monospace;
+            font-size: 0.9rem;
+            color: #4b5563;
+            white-space: pre-wrap;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .open-all-container {
+            text-align: center;
+            margin: 20px 0;
+            padding: 20px;
+            background: #f0f9ff;
+            border-radius: 8px;
+            border: 1px solid #bae6fd;
+        }
+
+        .open-all-btn {
+            background: #0ea5e9;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .open-all-btn:hover {
+            background: #0284c7;
+            transform: translateY(-2px);
+        }
+
+        @media (max-width: 640px) {
+            .container {
+                margin: 10px;
+                border-radius: 8px;
+            }
+
+            .header {
+                padding: 20px;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .form-container {
+                padding: 20px;
+            }
+
+            .email-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>📧 Gmail Compose Helper</h1>
+        <p>Prepare personalized emails and open them in Gmail tabs</p>
+    </div>
+
+    <div class="form-container">
+        <form id="emailForm">
+            <div class="form-group">
+                <label for="subject">Email Subject</label>
+                <input type="text" id="subject" name="subject" required>
+                <div class="help-text">The subject line for your emails</div>
+            </div>
+
+            <div class="form-group">
+                <label for="message">Email Message</label>
+                <textarea id="message" name="message" required placeholder="Hello {name},&#10;&#10;This is a personalized message for you!&#10;&#10;Best regards,&#10;Your Name"></textarea>
+                <div class="help-text">Use <strong>{name}</strong> as a placeholder that will be replaced with each recipient's name</div>
+            </div>
+
+            <div class="form-group">
+                <label for="recipients">Recipients</label>
+                <textarea id="recipients" name="recipients" class="recipients-input" required placeholder="John Doe john@example.com, Jane Smith jane@example.com, Bob Johnson bob@example.com"></textarea>
+                <div class="help-text">Enter recipients in the format: <strong>Name email@example.com</strong>, separated by commas</div>
+            </div>
+
+            <button type="submit" class="prepare-button" id="prepareButton">
+                Prepare Gmail Compose Tabs
+            </button>
+        </form>
+
+        <div id="statusContainer" class="status-container">
+            <div id="statusMessage"></div>
+            <div id="emailsContainer" class="emails-container"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const form = document.getElementById('emailForm');
+    const prepareButton = document.getElementById('prepareButton');
+    const statusContainer = document.getElementById('statusContainer');
+    const statusMessage = document.getElementById('statusMessage');
+    const emailsContainer = document.getElementById('emailsContainer');
+
+    let preparedEmails = [];
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        // Get form data
+        const formData = new FormData(form);
+        const data = {
+            subject: formData.get('subject'),
+            message: formData.get('message'),
+            recipients: formData.get('recipients')
+        };
+
+        // Show loading state
+        prepareButton.disabled = true;
+        prepareButton.innerHTML = '<div class="loading"><div class="spinner"></div>Preparing emails...</div>';
+        showStatus('info', 'Preparing your personalized emails...');
+
+        try {
+            // Parse recipients locally (no server needed for this part)
+            const recipientList = data.recipients.split(',').map(r => r.trim());
+            const parsedRecipients = [];
+
+            for (const recipient of recipientList) {
+                const match = recipient.match(/^(.+?)\s+([^\s]+@[^\s]+)$/);
+                if (!match) {
+                    throw new Error(`Invalid recipient format: "${recipient}". Please use: Name email@example.com`);
+                }
+                parsedRecipients.push({
+                    name: match[1].trim(),
+                    email: match[2].trim()
+                });
+            }
+
+            // Create Gmail compose URLs locally
+            const emailUrls = parsedRecipients.map(recipient => {
+                // Personalize message by replacing {name} with actual name
+                const personalizedMessage = data.message.replace(/{name}/g, recipient.name);
+
+                // Create Gmail compose URL
+                const gmailUrl = new URL('https://mail.google.com/mail/?view=cm&fs=1');
+                gmailUrl.searchParams.set('to', recipient.email);
+                gmailUrl.searchParams.set('su', data.subject);
+                gmailUrl.searchParams.set('body', personalizedMessage);
+
+                return {
+                    name: recipient.name,
+                    email: recipient.email,
+                    url: gmailUrl.toString(),
+                    personalizedMessage: personalizedMessage
+                };
+            });
+
+            preparedEmails = emailUrls;
+            showStatus('success', `${emailUrls.length} emails prepared! You can now open them in Gmail.`);
+            displayEmails(emailUrls);
+
+        } catch (error) {
+            showStatus('error', error.message);
+        } finally {
+            // Reset button
+            prepareButton.disabled = false;
+            prepareButton.innerHTML = 'Prepare Gmail Compose Tabs';
+        }
+    });
+
+    function showStatus(type, message) {
+        statusContainer.style.display = 'block';
+        statusContainer.className = `status-container status-${type}`;
+        statusMessage.innerHTML = message;
+
+        // Scroll to status
+        statusContainer.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function displayEmails(emails) {
+        if (emails.length === 0) return;
+
+        let html = '';
+
+        // Add helpful instructions
+        if (emails.length > 1) {
+            html += `
+                <div class="open-all-container">
+                    <h3 style="margin-bottom: 15px; color: #0c4a6e;">✨ Ready to Send!</h3>
+                    <p style="color: #64748b; font-size: 1rem; line-height: 1.5;">
+                        Click the <strong>"📧 Open in Gmail"</strong> button for each recipient below.
+                        Each will open in a new tab with the personalized message ready to send.
+                    </p>
+                </div>
+            `;
+        }
+
+        // Add individual email items
+        emails.forEach((email, index) => {
+            html += `
+                <div class="email-item">
+                    <div class="email-header">
+                        <div class="recipient-info">
+                            <strong>${email.name}</strong><br>
+                            <span style="color: #6b7280;">${email.email}</span>
+                        </div>
+                        <a href="${email.url}" target="_blank" class="open-gmail-btn">
+                            📧 Open in Gmail
+                        </a>
+                    </div>
+                    <details>
+                        <summary style="cursor: pointer; color: #4f46e5; font-weight: 600; margin-bottom: 10px;">
+                            Preview personalized message
+                        </summary>
+                        <div class="preview-message">${email.personalizedMessage}</div>
+                    </details>
+                </div>
+            `;
+        });
+
+        emailsContainer.innerHTML = html;
+    }
+
+    // Auto-resize textareas
+    document.querySelectorAll('textarea').forEach(textarea => {
+        textarea.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = this.scrollHeight + 'px';
+        });
+    });
+</script>
+</body>
+</html>

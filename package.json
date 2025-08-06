@@ -1,0 +1,19 @@
+{
+  "name": "gmail-compose-helper",
+  "version": "1.0.0",
+  "description": "Simple tool to prepare personalized Gmail compose tabs",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": ".idea/node_modules/.bin/nodemon server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "keywords": ["gmail", "email", "compose", "personalization"],
+  "author": "Your Name",
+  "license": "MIT"
+}
