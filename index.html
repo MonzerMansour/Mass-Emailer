@@ -292,7 +292,7 @@
             <div class="form-group">
                 <label for="subject">Email Subject</label>
                 <input type="text" id="subject" name="subject" required>
-                <div class="help-text">The subject line for your emails</div>
+                <div class="help-text">The subject line for your emails. You can use <strong>{name}</strong> here too!</div>
             </div>
 
             <div class="form-group">
@@ -303,8 +303,8 @@
 
             <div class="form-group">
                 <label for="recipients">Recipients</label>
-                <textarea id="recipients" name="recipients" class="recipients-input" required placeholder="John Doe john@example.com, Jane Smith jane@example.com, Bob Johnson bob@example.com"></textarea>
-                <div class="help-text">Enter recipients in the format: <strong>Name email@example.com</strong>, separated by commas</div>
+                <textarea id="recipients" name="recipients" class="recipients-input" required placeholder="Ms. WWW a@gmail.com MS.TISMIC b@yahoo.com, Monzer monzer@gmail.com acristic@yahoo.com"></textarea>
+                <div class="help-text">Format: <strong>Name1 email1@domain.com Name2 email2@domain.com</strong>, separated by commas. Names will be combined with "and" for multiple recipients in the same group.</div>
             </div>
 
             <button type="submit" class="prepare-button" id="prepareButton">
@@ -345,43 +345,94 @@
         showStatus('info', 'Preparing your personalized emails...');
 
         try {
-            // Parse recipients locally (no server needed for this part)
-            const recipientList = data.recipients.split(',').map(r => r.trim());
-            const parsedRecipients = [];
+            // Parse recipients
+            const recipientGroups = data.recipients.split(',').map(r => r.trim());
+            const emailEntries = [];
 
-            for (const recipient of recipientList) {
-                const match = recipient.match(/^(.+?)\s+([^\s]+@[^\s]+)$/);
-                if (!match) {
-                    throw new Error(`Invalid recipient format: "${recipient}". Please use: Name email@example.com`);
+            for (const group of recipientGroups) {
+                const parts = group.trim().split(/\s+/);
+
+                if (parts.length === 0) {
+                    continue;
                 }
-                parsedRecipients.push({
-                    name: match[1].trim(),
-                    email: match[2].trim()
+
+                const emails = [];
+                const names = [];
+
+                // Separate emails from names
+                for (const part of parts) {
+                    if (part.includes('@')) {
+                        emails.push(part);
+                    } else {
+                        names.push(part);
+                    }
+                }
+
+                if (emails.length === 0) {
+                    throw new Error(`No valid email found in: "${group}"`);
+                }
+
+                // Create combined name
+                let combinedName = '';
+                if (names.length === 0) {
+                    // Use first email's prefix as fallback
+                    combinedName = emails[0].split('@')[0];
+                } else if (names.length === 1) {
+                    combinedName = names[0];
+                } else if (names.length === 2) {
+                    combinedName = names.join(' and ');
+                } else {
+                    // For 3+ names: "Name1, Name2, and Name3"
+                    combinedName = names.slice(0, -1).join(', ') + ', and ' + names[names.length - 1];
+                }
+
+                // Create email entries - one per email address with the same combined name
+                emails.forEach(email => {
+                    emailEntries.push({
+                        emails: emails, // All emails in this group
+                        combinedName: combinedName,
+                        singleEmail: email // Individual email for this entry
+                    });
                 });
             }
 
-            // Create Gmail compose URLs locally
-            const emailUrls = parsedRecipients.map(recipient => {
-                // Personalize message by replacing {name} with actual name
-                const personalizedMessage = data.message.replace(/{name}/g, recipient.name);
+            // Create Gmail compose URLs
+            const emailUrls = emailEntries.map((entry, index) => {
+                // Personalize both subject and message
+                const personalizedSubject = data.subject.replace(/{name}/g, entry.combinedName);
+                const personalizedMessage = data.message.replace(/{name}/g, entry.combinedName);
 
-                // Create Gmail compose URL
+                // Create Gmail compose URL - send to all emails in the group
                 const gmailUrl = new URL('https://mail.google.com/mail/?view=cm&fs=1');
-                gmailUrl.searchParams.set('to', recipient.email);
-                gmailUrl.searchParams.set('su', data.subject);
+                gmailUrl.searchParams.set('to', entry.emails.join(', ')); // Multiple recipients
+                gmailUrl.searchParams.set('su', personalizedSubject);
                 gmailUrl.searchParams.set('body', personalizedMessage);
 
                 return {
-                    name: recipient.name,
-                    email: recipient.email,
+                    combinedName: entry.combinedName,
+                    emails: entry.emails,
+                    singleEmail: entry.singleEmail, // For display purposes
                     url: gmailUrl.toString(),
+                    personalizedSubject: personalizedSubject,
                     personalizedMessage: personalizedMessage
                 };
             });
 
-            preparedEmails = emailUrls;
-            showStatus('success', `${emailUrls.length} emails prepared! You can now open them in Gmail.`);
-            displayEmails(emailUrls);
+            // Remove duplicates (since we create one entry per email but want one per group)
+            const uniqueEmails = [];
+            const seenGroups = new Set();
+
+            for (const email of emailUrls) {
+                const groupKey = email.emails.sort().join(',');
+                if (!seenGroups.has(groupKey)) {
+                    seenGroups.add(groupKey);
+                    uniqueEmails.push(email);
+                }
+            }
+
+            preparedEmails = uniqueEmails;
+            showStatus('success', `${uniqueEmails.length} emails prepared! You can now open them in Gmail.`);
+            displayEmails(uniqueEmails);
 
         } catch (error) {
             showStatus('error', error.message);
@@ -396,8 +447,6 @@
         statusContainer.style.display = 'block';
         statusContainer.className = `status-container status-${type}`;
         statusMessage.innerHTML = message;
-
-        // Scroll to status
         statusContainer.scrollIntoView({ behavior: 'smooth' });
     }
 
@@ -406,14 +455,16 @@
 
         let html = '';
 
-        // Add helpful instructions
+        // Add "Open All" button
         if (emails.length > 1) {
             html += `
                 <div class="open-all-container">
-                    <h3 style="margin-bottom: 15px; color: #0c4a6e;">✨ Ready to Send!</h3>
-                    <p style="color: #64748b; font-size: 1rem; line-height: 1.5;">
-                        Click the <strong>"📧 Open in Gmail"</strong> button for each recipient below.
-                        Each will open in a new tab with the personalized message ready to send.
+                    <h3 style="margin-bottom: 15px; color: #0c4a6e;">Quick Action</h3>
+                    <button class="open-all-btn" onclick="openAllEmailsSequentially()">
+                        🚀 Open All ${emails.length} Gmail Tabs
+                    </button>
+                    <p style="margin-top: 10px; color: #64748b; font-size: 0.9rem;">
+                        This will open tabs in the background with 1.5-second delays. Stay on this page until all tabs are opened.
                     </p>
                 </div>
             `;
@@ -425,17 +476,20 @@
                 <div class="email-item">
                     <div class="email-header">
                         <div class="recipient-info">
-                            <strong>${email.name}</strong><br>
-                            <span style="color: #6b7280;">${email.email}</span>
+                            <strong>To: ${email.combinedName}</strong><br>
+                            <span style="color: #6b7280;">Recipients: ${email.emails.join(', ')}</span>
                         </div>
-                        <a href="${email.url}" target="_blank" class="open-gmail-btn">
+                        <a href="${email.url}" target="_blank" class="open-gmail-btn" id="gmail-btn-${index}">
                             📧 Open in Gmail
                         </a>
                     </div>
                     <details>
                         <summary style="cursor: pointer; color: #4f46e5; font-weight: 600; margin-bottom: 10px;">
-                            Preview personalized message
+                            Preview personalized email
                         </summary>
+                        <div style="margin-bottom: 10px;">
+                            <strong>Subject:</strong> <span style="color: #374151;">${email.personalizedSubject}</span>
+                        </div>
                         <div class="preview-message">${email.personalizedMessage}</div>
                     </details>
                 </div>
@@ -443,6 +497,57 @@
         });
 
         emailsContainer.innerHTML = html;
+    }
+
+    function openAllEmailsSequentially() {
+        if (preparedEmails.length === 0) {
+            alert('No emails prepared yet. Please fill out the form and click "Prepare Gmail Compose Tabs" first.');
+            return;
+        }
+
+        if (preparedEmails.length > 5) {
+            const confirmed = confirm(`This will open ${preparedEmails.length} Gmail tabs with 1.5-second delays. Are you sure?`);
+            if (!confirmed) return;
+        }
+
+        showStatus('info', `Opening ${preparedEmails.length} Gmail tabs... Please wait and don't switch tabs...`);
+
+        let openedCount = 0;
+
+        preparedEmails.forEach((email, index) => {
+            setTimeout(() => {
+                try {
+                    const tempLink = document.createElement('a');
+                    tempLink.href = email.url;
+                    tempLink.target = '_blank';
+                    tempLink.rel = 'noopener noreferrer';
+
+                    document.body.appendChild(tempLink);
+
+                    const clickEvent = new MouseEvent('click', {
+                        bubbles: true,
+                        cancelable: true,
+                        view: window,
+                        ctrlKey: true
+                    });
+
+                    tempLink.dispatchEvent(clickEvent);
+                    document.body.removeChild(tempLink);
+
+                    openedCount++;
+
+                    const remaining = preparedEmails.length - openedCount;
+                    if (remaining > 0) {
+                        showStatus('info', `Opened ${openedCount} of ${preparedEmails.length} tabs... ${remaining} remaining`);
+                    } else {
+                        showStatus('success', `Successfully opened all ${preparedEmails.length} Gmail compose tabs! Check your browser tabs.`);
+                    }
+                } catch (error) {
+                    console.error(`Failed to open tab ${index + 1}:`, error);
+                    showStatus('error', `Failed to open some tabs. Try clicking individual buttons instead.`);
+                }
+            }, index * 1500);
+        });
     }
 
     // Auto-resize textareas
