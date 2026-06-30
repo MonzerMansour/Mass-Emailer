@@ -72,10 +72,6 @@ export default function App() {
       .catch(() => signOut());
   }, [accessToken, signOut]);
 
-  const handleReconnect = useCallback(() => {
-    startOAuthFlow(CLIENT_ID);
-  }, []);
-
   const updateResults = useCallback((update: SendResult[] | ((prev: SendResult[]) => SendResult[])) => {
     setResults(prev => typeof update === 'function' ? update(prev) : update);
   }, []);
